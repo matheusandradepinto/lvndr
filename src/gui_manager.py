@@ -9,7 +9,7 @@ class GUIManager:
         self.video_manager = video_manager
         self.root = Tk()
         self.root.title("Controls")
-        self.root.geometry("640x860") 
+        self.root.geometry("640x900")  # Adjusted height for new sliders
         self.channel_vars = []  
         self.channel_checkboxes = []
 
@@ -30,7 +30,6 @@ class GUIManager:
         control_frame = Frame(self.root, bg='#000000')
         control_frame.pack(fill='both', expand=True)
 
-        
         canvas = Canvas(control_frame, bg='#000000')
         scrollbar = Scrollbar(control_frame, orient='vertical', command=canvas.yview)
         scrollable_frame = Frame(canvas, bg='#000000')
@@ -69,11 +68,16 @@ class GUIManager:
         self.blend_weight_slider = self.add_slider(scrollable_frame, "Blend Weight", 0.0, 1.0, self.processor.blend_weight, ("Courier", 14, "bold"), ("Courier", 10), 0.01)
         self.base_weight_slider.pack(fill='x', pady=5)
         self.blend_weight_slider.pack(fill='x', pady=5)
-        
+
+        # Add Saturation, Brightness, and Contrast sliders
+        self.saturation_slider = self.add_slider(scrollable_frame, "Saturation", 0.0, 3.0, self.processor.saturation, ("Courier", 14, "bold"), ("Courier", 10), 0.01)
+        self.brightness_slider = self.add_slider(scrollable_frame, "Brightness", -100, 100, self.processor.brightness, ("Courier", 14, "bold"), ("Courier", 10), 1)
+        self.contrast_slider = self.add_slider(scrollable_frame, "Contrast", 0.0, 3.0, self.processor.contrast, ("Courier", 14, "bold"), ("Courier", 10), 0.01)
+
         self.color_space_var = StringVar(self.root)
         self.color_space_var.set(self.processor.selected_color_space)
         self.add_option_menu(scrollable_frame, "Colorspace:", self.processor.color_space_conversion.keys(), self.color_space_var)
-        
+
         self.filter_var = StringVar(self.root)
         self.filter_var.set("Yes" if self.processor.apply_filter else "No")
         self.add_option_menu(scrollable_frame, "Apply Filter:", ["Yes", "No"], self.filter_var)
@@ -181,6 +185,9 @@ class GUIManager:
         self.processor.blend_jpeg_quality = self.blend_jpeg_quality_slider.get()
         self.processor.base_weight = self.base_weight_slider.get()
         self.processor.blend_weight = self.blend_weight_slider.get()
+        self.processor.saturation = self.saturation_slider.get()
+        self.processor.brightness = self.brightness_slider.get()
+        self.processor.contrast = self.contrast_slider.get()
         self.processor.apply_filter = self.filter_var.get() == "Yes"         
         self.processor.apply_blending = self.blending_mode_var.get() != "None"  
         self.processor.selected_color_space = self.color_space_var.get()
@@ -195,6 +202,9 @@ class GUIManager:
         self.blend_jpeg_quality_slider.set(self.processor.default_blend_jpeg_quality)
         self.base_weight_slider.set(self.processor.default_base_weight)
         self.blend_weight_slider.set(self.processor.default_blend_weight)
+        self.saturation_slider.set(self.processor.default_saturation)
+        self.brightness_slider.set(self.processor.default_brightness)
+        self.contrast_slider.set(self.processor.default_contrast)
         self.color_space_var.set(self.processor.default_color_space)
         self.filter_var.set("Yes" if self.processor.default_apply_filter else "No")
         self.blending_mode_var.set(self.processor.default_blending_mode)
