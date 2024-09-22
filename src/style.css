@@ -1,0 +1,43 @@
+QMainWindow {
+    background-color: black;
+    border: none;
+}
+
+QPushButton {
+    background-color: green;
+    color: lime;
+    font-weight: bold;
+    border: 2px solid green;
+    border-radius: 5px;
+}
+QPushButton:hover {
+    background-color: darkgreen;
+}
+QLabel {
+    color: lime;
+    font-family: 'Courier New', Courier, monospace;
+}
+QSlider {
+    background: black;
+}
+QSlider::groove:horizontal {
+    background: darkgray;
+    height: 8px;
+}
+QSlider::handle:horizontal {
+    background: green;
+    width: 16px;
+    border-radius: 8px;
+}
+QComboBox {
+    background-color: black;
+    color: lime;
+    border: 2px solid green;
+    padding: 5px;
+}
+QCheckBox {
+    color: lime;
+}
+QScrollArea {
+    background-color: lime;
+}

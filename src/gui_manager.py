@@ -13,34 +13,36 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle("Image Processor")
-        self.setGeometry(100, 100, 800, 600)
-        self.setMinimumSize(640, 900)  # Set a minimum size for the window
+        self.setGeometry(100, 100, 500, 500)
+        self.setMinimumSize(500, 900)
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        self.load_stylesheet(".\\src\\style.css")
+        central_widget.setStyleSheet("background-color: #000;")
 
-        # Create a scroll area
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
 
-        # Main layout inside the scroll area
-        self.layout = QtWidgets.QVBoxLayout()  # Store layout as an instance variable
+        self.layout = QtWidgets.QVBoxLayout()
 
-        # Create a horizontal layout for buttons
         button_layout = QtWidgets.QHBoxLayout()
         self.start_webcam_button = QtWidgets.QPushButton("Start Webcam")
+        self.start_webcam_button.setFixedSize(120, 30)  # Set fixed size for buttons
         self.start_webcam_button.clicked.connect(self.start_webcam)
         button_layout.addWidget(self.start_webcam_button)
 
         self.open_video_button = QtWidgets.QPushButton("Open Video")
+        self.open_video_button.setFixedSize(120, 30)
         self.open_video_button.clicked.connect(self.open_video)
         button_layout.addWidget(self.open_video_button)
 
         self.reset_button = QtWidgets.QPushButton("Reset to Defaults")
+        self.reset_button.setFixedSize(120, 30)
         self.reset_button.clicked.connect(self.reset_defaults)
         button_layout.addWidget(self.reset_button)
 
-        # Add the button layout to the main layout
         self.layout.addLayout(button_layout)
 
-        # Initialize sliders
         self.amplitude_slider = self.create_slider("Amplitude", 0, 200, self.processor.default_amplitude)
         self.smoothness_slider = self.create_slider("Smoothness", 1, 20, self.processor.default_smoothness)
         self.threshold_slider = self.create_slider("Threshold", 0, 100, self.processor.default_threshold)
@@ -53,17 +55,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.base_weight_slider = self.create_slider("Base Weight", 0, 10, self.processor.default_base_weight, decimal=True)
         self.blend_weight_slider = self.create_slider("Blend Weight", 0, 10, self.processor.default_blend_weight, decimal=True)
 
-        # Add sliders to layout
         self.add_widgets_to_layout(self.layout)
 
-        # Color Space Dropdown
         self.color_space_dropdown = self.create_dropdown("Color Space", list(self.processor.color_space_conversion.keys()))
         self.color_space_dropdown.currentTextChanged.connect(self.update_channel_checkboxes)
 
-        # Blending Mode Dropdown
         self.blending_mode_dropdown = self.create_dropdown("Blending Mode", ["None", "Overlay", "Multiply", "Linear Burn", "Screen", "Darken", "Lighten", "Difference", "Exclusion", "Soft Light", "Hard Light", "Dodge", "Burn"])
 
-        # Apply Filter Checkbox
         self.apply_filter_checkbox = QtWidgets.QCheckBox("Apply Filter")
         self.apply_filter_checkbox.setChecked(True)
 
@@ -71,41 +69,42 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout.addWidget(self.blending_mode_dropdown)
         self.layout.addWidget(self.apply_filter_checkbox)
 
-        # Central widget to hold the layout
-        central_widget = QtWidgets.QWidget()
         central_widget.setLayout(self.layout)
 
-        # Set the central widget of the scroll area
         scroll_area.setWidget(central_widget)
         self.setCentralWidget(scroll_area)
 
-        # Update channel checkboxes after the central widget is set
-        self.update_channel_checkboxes()  # Ensure this is called last
+        self.update_channel_checkboxes()
+
+    def load_stylesheet(self, filename):
+        with open(filename, "r") as file:
+            style = file.read()
+            self.setStyleSheet(style)
 
     def add_widgets_to_layout(self, layout):
-        layout.setSpacing(5)  # Reduce spacing between elements
-        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        layout.setSpacing(2)  # Reduce spacing
+        layout.setContentsMargins(2, 2, 2, 2)  # Reduce margins
 
         layout.addWidget(self.amplitude_slider)
         layout.addWidget(self.smoothness_slider)
         layout.addWidget(self.threshold_slider)
         layout.addWidget(self.repeat_slider)
         layout.addWidget(self.jpeg_quality_slider)
+        layout.addWidget(self.blend_jpeg_quality_slider)
         layout.addWidget(self.brightness_slider)
         layout.addWidget(self.saturation_slider)
         layout.addWidget(self.contrast_slider)
-        layout.addWidget(self.blend_jpeg_quality_slider)
         layout.addWidget(self.base_weight_slider)
         layout.addWidget(self.blend_weight_slider)
 
     def create_slider(self, label, min_value, max_value, default_value, decimal=False):
         slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         slider.setRange(min_value, max_value)
-        slider.setValue(int(default_value) if not decimal else int(default_value * 10))  # Scale for decimal
+        slider.setValue(int(default_value) if not decimal else int(default_value * 10))
         slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
         slider.setTickInterval(1)
+        slider.setFixedHeight(20)  # Set fixed height for sliders
 
-        # Connect slider value change to update processor
         slider.valueChanged.connect(lambda value: self.update_processor(label, value / 10.0 if decimal else value))
 
         slider_label = QtWidgets.QLabel(label)
@@ -113,10 +112,8 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(slider_label)
         layout.addWidget(slider)
 
-        # Store slider in the dictionary
         self.sliders[label] = slider
 
-        # Return the whole layout
         widget = QtWidgets.QWidget()
         widget.setLayout(layout)
         return widget
@@ -125,7 +122,6 @@ class MainWindow(QtWidgets.QMainWindow):
         dropdown = QtWidgets.QComboBox()
         dropdown.addItems(options)
 
-        # Connect dropdown selection change to update processor
         dropdown.currentTextChanged.connect(lambda value: self.update_processor(label, value))
 
         dropdown_label = QtWidgets.QLabel(label)
@@ -133,12 +129,14 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(dropdown_label)
         layout.addWidget(dropdown)
 
+        dropdown.setFixedHeight(30)  # Set fixed height for dropdowns
+
         return dropdown
 
     def update_channel_checkboxes(self):
         for cb in self.channel_checkboxes:
             cb.setParent(None)
-        
+
         self.channel_checkboxes.clear()
 
         color_space = self.color_space_dropdown.currentText()
@@ -155,7 +153,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         num_channels = len(channel_names.get(color_space, []))
 
-        # Create a horizontal layout for channel checkboxes
         checkbox_layout = QtWidgets.QHBoxLayout()
 
         for i in range(num_channels):
@@ -163,9 +160,9 @@ class MainWindow(QtWidgets.QMainWindow):
             cb.setChecked(True)
             cb.stateChanged.connect(lambda state, index=i: self.update_selected_channels(index, state))
             self.channel_checkboxes.append(cb)
-            checkbox_layout.addWidget(cb)  # Add to the horizontal layout
+            checkbox_layout.addWidget(cb)
 
-        self.layout.addLayout(checkbox_layout)  # Add the checkbox layout to the main layout
+        self.layout.addLayout(checkbox_layout)
 
     def update_selected_channels(self, index, state):
         self.processor.selected_channels[index] = 1 if state == QtCore.Qt.Checked else 0
