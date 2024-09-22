@@ -1,214 +1,226 @@
-from tkinter import filedialog, Tk, Scale, HORIZONTAL, StringVar, OptionMenu, Label, Frame, Canvas, Scrollbar, Checkbutton, IntVar, Button
-from src.image_processor import ImageProcessor
-from src.video_source_manager import VideoSourceManager
-import threading
+from PyQt5 import QtWidgets, QtCore
+import cv2
 
-class GUIManager:
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, processor, video_manager):
+        super().__init__()
         self.processor = processor
         self.video_manager = video_manager
-        self.root = Tk()
-        self.root.title("Controls")
-        self.root.geometry("640x900")  # Adjusted height for new sliders
-        self.channel_vars = []  
+        self.sliders = {}
         self.channel_checkboxes = []
+        self.init_ui()
+        self.apply_filter_checkbox.stateChanged.connect(self.update_apply_filter)
 
-        self.setup_gui()
+    def init_ui(self):
+        self.setWindowTitle("Image Processor")
+        self.setGeometry(100, 100, 800, 600)
+        self.setMinimumSize(640, 900)  # Set a minimum size for the window
 
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.root.mainloop()
+        # Create a scroll area
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        # Main layout inside the scroll area
+        self.layout = QtWidgets.QVBoxLayout()  # Store layout as an instance variable
+
+        # Create a horizontal layout for buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        self.start_webcam_button = QtWidgets.QPushButton("Start Webcam")
+        self.start_webcam_button.clicked.connect(self.start_webcam)
+        button_layout.addWidget(self.start_webcam_button)
+
+        self.open_video_button = QtWidgets.QPushButton("Open Video")
+        self.open_video_button.clicked.connect(self.open_video)
+        button_layout.addWidget(self.open_video_button)
+
+        self.reset_button = QtWidgets.QPushButton("Reset to Defaults")
+        self.reset_button.clicked.connect(self.reset_defaults)
+        button_layout.addWidget(self.reset_button)
+
+        # Add the button layout to the main layout
+        self.layout.addLayout(button_layout)
+
+        # Initialize sliders
+        self.amplitude_slider = self.create_slider("Amplitude", 0, 200, self.processor.default_amplitude)
+        self.smoothness_slider = self.create_slider("Smoothness", 1, 20, self.processor.default_smoothness)
+        self.threshold_slider = self.create_slider("Threshold", 0, 100, self.processor.default_threshold)
+        self.repeat_slider = self.create_slider("Repeat", 1, 4, self.processor.default_repeat)
+        self.jpeg_quality_slider = self.create_slider("JPEG Quality", 0, 100, self.processor.default_jpeg_quality)
+        self.blend_jpeg_quality_slider = self.create_slider("Blend JPEG Quality", 0, 100, self.processor.blend_jpeg_quality)
+        self.brightness_slider = self.create_slider("Brightness", -100, 100, self.processor.default_brightness)
+        self.saturation_slider = self.create_slider("Saturation", -100, 100, self.processor.default_saturation)
+        self.contrast_slider = self.create_slider("Contrast", -100, 100, self.processor.default_contrast, decimal=True)
+        self.base_weight_slider = self.create_slider("Base Weight", 0, 10, self.processor.default_base_weight, decimal=True)
+        self.blend_weight_slider = self.create_slider("Blend Weight", 0, 10, self.processor.default_blend_weight, decimal=True)
+
+        # Add sliders to layout
+        self.add_widgets_to_layout(self.layout)
+
+        # Color Space Dropdown
+        self.color_space_dropdown = self.create_dropdown("Color Space", list(self.processor.color_space_conversion.keys()))
+        self.color_space_dropdown.currentTextChanged.connect(self.update_channel_checkboxes)
+
+        # Blending Mode Dropdown
+        self.blending_mode_dropdown = self.create_dropdown("Blending Mode", ["None", "Overlay", "Multiply", "Linear Burn", "Screen", "Darken", "Lighten", "Difference", "Exclusion", "Soft Light", "Hard Light", "Dodge", "Burn"])
+
+        # Apply Filter Checkbox
+        self.apply_filter_checkbox = QtWidgets.QCheckBox("Apply Filter")
+        self.apply_filter_checkbox.setChecked(True)
+
+        self.layout.addWidget(self.color_space_dropdown)
+        self.layout.addWidget(self.blending_mode_dropdown)
+        self.layout.addWidget(self.apply_filter_checkbox)
+
+        # Central widget to hold the layout
+        central_widget = QtWidgets.QWidget()
+        central_widget.setLayout(self.layout)
+
+        # Set the central widget of the scroll area
+        scroll_area.setWidget(central_widget)
+        self.setCentralWidget(scroll_area)
+
+        # Update channel checkboxes after the central widget is set
+        self.update_channel_checkboxes()  # Ensure this is called last
+
+    def add_widgets_to_layout(self, layout):
+        layout.setSpacing(5)  # Reduce spacing between elements
+        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+
+        layout.addWidget(self.amplitude_slider)
+        layout.addWidget(self.smoothness_slider)
+        layout.addWidget(self.threshold_slider)
+        layout.addWidget(self.repeat_slider)
+        layout.addWidget(self.jpeg_quality_slider)
+        layout.addWidget(self.brightness_slider)
+        layout.addWidget(self.saturation_slider)
+        layout.addWidget(self.contrast_slider)
+        layout.addWidget(self.blend_jpeg_quality_slider)
+        layout.addWidget(self.base_weight_slider)
+        layout.addWidget(self.blend_weight_slider)
+
+    def create_slider(self, label, min_value, max_value, default_value, decimal=False):
+        slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        slider.setRange(min_value, max_value)
+        slider.setValue(int(default_value) if not decimal else int(default_value * 10))  # Scale for decimal
+        slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        slider.setTickInterval(1)
+
+        # Connect slider value change to update processor
+        slider.valueChanged.connect(lambda value: self.update_processor(label, value / 10.0 if decimal else value))
+
+        slider_label = QtWidgets.QLabel(label)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(slider_label)
+        layout.addWidget(slider)
+
+        # Store slider in the dictionary
+        self.sliders[label] = slider
+
+        # Return the whole layout
+        widget = QtWidgets.QWidget()
+        widget.setLayout(layout)
+        return widget
+
+    def create_dropdown(self, label, options):
+        dropdown = QtWidgets.QComboBox()
+        dropdown.addItems(options)
+
+        # Connect dropdown selection change to update processor
+        dropdown.currentTextChanged.connect(lambda value: self.update_processor(label, value))
+
+        dropdown_label = QtWidgets.QLabel(label)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(dropdown_label)
+        layout.addWidget(dropdown)
+
+        return dropdown
+
+    def update_channel_checkboxes(self):
+        for cb in self.channel_checkboxes:
+            cb.setParent(None)
+        
+        self.channel_checkboxes.clear()
+
+        color_space = self.color_space_dropdown.currentText()
+        channel_names = {
+            "RGB": ["R", "G", "B"],
+            "HSV": ["H", "S", "V"],
+            "HLS": ["H", "L", "S"],
+            "LAB": ["L", "A", "B"],
+            "LUV": ["L", "U", "V"],
+            "XYZ": ["X", "Y", "Z"],
+            "YCrCb": ["Y", "Cr", "Cb"],
+            "YUV": ["Y", "U", "V"]
+        }
+
+        num_channels = len(channel_names.get(color_space, []))
+
+        # Create a horizontal layout for channel checkboxes
+        checkbox_layout = QtWidgets.QHBoxLayout()
+
+        for i in range(num_channels):
+            cb = QtWidgets.QCheckBox(channel_names[color_space][i])
+            cb.setChecked(True)
+            cb.stateChanged.connect(lambda state, index=i: self.update_selected_channels(index, state))
+            self.channel_checkboxes.append(cb)
+            checkbox_layout.addWidget(cb)  # Add to the horizontal layout
+
+        self.layout.addLayout(checkbox_layout)  # Add the checkbox layout to the main layout
+
+    def update_selected_channels(self, index, state):
+        self.processor.selected_channels[index] = 1 if state == QtCore.Qt.Checked else 0
+
+    def update_processor(self, label, value):
+        if label == "Amplitude":
+            self.processor.amplitude = value
+        elif label == "Smoothness":
+            self.processor.smoothness = value
+        elif label == "Threshold":
+            self.processor.threshold = value
+        elif label == "Repeat":
+            self.processor.repeat = value
+        elif label == "JPEG Quality":
+            self.processor.jpeg_quality = value
+        elif label == "Blend JPEG Quality":
+            self.processor.blend_jpeg_quality = value    
+        elif label == "Brightness":
+            self.processor.brightness = value
+        elif label == "Saturation":
+            self.processor.saturation = value
+        elif label == "Contrast":
+            self.processor.contrast = value
+        elif label == "Base Weight":
+            self.processor.base_weight = value
+        elif label == "Blend Weight":
+            self.processor.blend_weight = value
+        elif label == "Color Space":
+            self.processor.selected_color_space = value
+        elif label == "Blending Mode":
+            self.processor.selected_blending_mode = value
+            self.processor.apply_blending = value != "None"
+
+    def update_apply_filter(self, state):
+        self.processor.apply_filter = state == QtCore.Qt.Checked
 
     def start_webcam(self):
         self.video_manager.start_webcam()
 
-    def open_video_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Video Files", "*.mp4;*.avi;*.mov")])
+    def open_video(self):
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mov)")
         if file_path:
             self.video_manager.start_video_file(file_path)
 
-    def setup_gui(self):
-        control_frame = Frame(self.root, bg='#000000')
-        control_frame.pack(fill='both', expand=True)
-
-        canvas = Canvas(control_frame, bg='#000000')
-        scrollbar = Scrollbar(control_frame, orient='vertical', command=canvas.yview)
-        scrollable_frame = Frame(canvas, bg='#000000')
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox('all'))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
-        canvas.pack(side='left', fill='both', expand=True)
-        scrollbar.pack(side='right', fill='y')
-
-        canvas.configure(yscrollcommand=scrollbar.set)
-      
-        button_frame = Frame(scrollable_frame, bg='#000000')
-        button_frame.pack(fill='x', pady=5)
-
-        start_webcam_button = Button(button_frame, text="Start Webcam", command=self.start_webcam, bg='#000000', fg='#00FF00', font=("Courier", 12), highlightbackground='#00FF00')
-        start_webcam_button.pack(side='left', padx=5)
-
-        open_video_file_button = Button(button_frame, text="Open Video File", command=self.open_video_file, bg='#000000', fg='#00FF00', font=("Courier", 12), highlightbackground='#00FF00')
-        open_video_file_button.pack(side='left', padx=5)
-
-        reset_button = Button(button_frame, text="Reset to Default", command=self.reset_to_default, bg='#000000', fg='#00FF00', font=("Courier", 12), highlightbackground='#00FF00')
-        reset_button.pack(side='left', padx=5)
-
-        self.amplitude_slider = self.add_slider(scrollable_frame, "Amplitude", 0, 100, self.processor.amplitude, ("Courier", 14, "bold"), ("Courier", 10), 0.1)
-        self.smoothness_slider = self.add_slider(scrollable_frame, "Smoothness", 1, 20, self.processor.smoothness, ("Courier", 14, "bold"), ("Courier", 10), 0.1)
-        self.threshold_slider = self.add_slider(scrollable_frame, "Threshold", 0, 100, self.processor.threshold, ("Courier", 14, "bold"), ("Courier", 10), 0.1)
-        self.repeat_slider = self.add_slider(scrollable_frame, "Repeat", 1, 4, self.processor.repeat, ("Courier", 14, "bold"), ("Courier", 10), 0.1)
-        self.jpeg_quality_slider = self.add_slider(scrollable_frame, "JPEG Quality", 0, 100, self.processor.jpeg_quality, ("Courier", 14, "bold"), ("Courier", 10), 1)
-        self.blend_jpeg_quality_slider = self.add_slider(scrollable_frame, "Blend JPEG Quality", 0, 100, self.processor.blend_jpeg_quality, ("Courier", 14, "bold"), ("Courier", 10), 1)
+    def reset_defaults(self):
+        self.processor.reset_to_defaults()
         
-        self.base_weight_slider = self.add_slider(scrollable_frame, "Base Weight", 0.0, 1.0, self.processor.base_weight, ("Courier", 14, "bold"), ("Courier", 10), 0.01)
-        self.blend_weight_slider = self.add_slider(scrollable_frame, "Blend Weight", 0.0, 1.0, self.processor.blend_weight, ("Courier", 14, "bold"), ("Courier", 10), 0.01)
-        self.base_weight_slider.pack(fill='x', pady=5)
-        self.blend_weight_slider.pack(fill='x', pady=5)
-
-        # Add Saturation, Brightness, and Contrast sliders
-        self.saturation_slider = self.add_slider(scrollable_frame, "Saturation", 0.0, 3.0, self.processor.saturation, ("Courier", 14, "bold"), ("Courier", 10), 0.01)
-        self.brightness_slider = self.add_slider(scrollable_frame, "Brightness", -100, 100, self.processor.brightness, ("Courier", 14, "bold"), ("Courier", 10), 1)
-        self.contrast_slider = self.add_slider(scrollable_frame, "Contrast", 0.0, 3.0, self.processor.contrast, ("Courier", 14, "bold"), ("Courier", 10), 0.01)
-
-        self.color_space_var = StringVar(self.root)
-        self.color_space_var.set(self.processor.selected_color_space)
-        self.add_option_menu(scrollable_frame, "Colorspace:", self.processor.color_space_conversion.keys(), self.color_space_var)
-
-        self.filter_var = StringVar(self.root)
-        self.filter_var.set("Yes" if self.processor.apply_filter else "No")
-        self.add_option_menu(scrollable_frame, "Apply Filter:", ["Yes", "No"], self.filter_var)
-   
-        self.blending_mode_var = StringVar(self.root)
-        self.blending_mode_var.set(self.processor.selected_blending_mode)
-        self.add_option_menu(scrollable_frame, "Blending Mode:", ["None", "Overlay", "Multiply", "Linear Burn", "Screen", "Darken", "Lighten", "Difference", "Exclusion", "Soft Light", "Hard Light", "Dodge", "Burn"], self.blending_mode_var)
-        
-        self.channel_frame = Frame(scrollable_frame, bg='#000000')
-        self.channel_frame.pack(fill='x', pady=5)
-        self.update_channel_checkboxes()  
-        
-        self.color_space_var.trace_add('write', self.update_channel_checkboxes)
-        
-        self.blending_mode_var.trace_add('write', self.update_blending_mode_gui)
-        
-        self.update_blending_mode_gui()
-
-    def add_slider(self, parent, label, from_, to_, default_value, title_font, slider_font, resolution):
-        frame = Frame(parent, bg='#000000')
-        frame.pack(fill='x', pady=5)
-
-        Label(frame, text=label, fg='#00FF00', bg='#000000', font=title_font).pack(side='left', padx=10)
-
-        slider = Scale(frame, from_=from_, to_=to_, orient=HORIZONTAL, length=300, sliderlength=20, tickinterval=(to_ - from_) / 5, bg='#000000', fg='#00FF00', troughcolor='#004d00', font=slider_font, resolution=resolution, command=self.update_parameters_from_slider)
-        slider.set(default_value)
-        slider.pack(side='left', fill='x', expand=True)
-        
-        return slider
-    
-    def add_option_menu(self, parent, label, options, variable):
-        frame = Frame(parent, bg='#000000')
-        frame.pack(fill='x', pady=5)
-
-        Label(frame, text=label, fg='#00FF00', bg='#000000', font=("Courier", 12)).pack(side='left', padx=10)
-
-        menu = OptionMenu(frame, variable, *options, command=self.update_blending_mode)
-        menu.config(bg='#000000', fg='#00FF00', font=("Courier", 12), highlightbackground='#00FF00')
-        menu.pack(side='left', fill='x', expand=True)
-
-    def update_parameters_from_slider(self, *args):
-        self.update_parameters()
-
-    def update_channel_checkboxes(self, *args):       
-        for checkbox in self.channel_checkboxes:
-            checkbox.destroy()
-        self.channel_checkboxes.clear()
-        self.channel_vars.clear()
-        
-        color_space = self.color_space_var.get()
-        if color_space == 'RGB':
-            channels = ['R', 'G', 'B']
-        elif color_space == 'HSV':
-            channels = ['H', 'S', 'V']
-        elif color_space == 'HLS':
-            channels = ['H', 'L', 'S']
-        elif color_space == 'LAB':
-            channels = ['L', 'A', 'B']
-        elif color_space == 'LUV':
-            channels = ['L', 'U', 'V']
-        elif color_space == 'YCrCb':
-            channels = ['Y', 'Cr', 'Cb']
-        elif color_space == 'XYZ':
-            channels = ['X', 'Y', 'Z']
-        elif color_space == 'YUV':
-            channels = ['Y', 'U', 'V']
-     
-        self.processor.selected_channels = [1] * len(channels)  
-        
-        for i, channel in enumerate(channels):
-            var = IntVar(value=self.processor.selected_channels[i])  
-            cb = Checkbutton(self.channel_frame, text=channel, variable=var, onvalue=1, offvalue=0,
-                             fg='#00FF00', bg='#000000', selectcolor='#004d00', command=self.update_channel_selection)
-            cb.pack(side='left', padx=5)
-            self.channel_vars.append(var)
-            self.channel_checkboxes.append(cb)
-        
-        self.root.update_idletasks()
-
-    def update_channel_selection(self):      
-        self.processor.selected_channels = [var.get() for var in self.channel_vars]
-
-    def update_blending_mode_gui(self, *args):        
-        mode = self.blending_mode_var.get()
-
-        if mode == "None":
-            self.base_weight_slider.pack_forget()
-            self.blend_weight_slider.pack_forget()
-        else:
-            self.base_weight_slider.pack(fill='x', pady=5)
-            self.blend_weight_slider.pack(fill='x', pady=5)
-
-        self.update_parameters()
-
-    def update_blending_mode(self, value):
-        self.processor.selected_blending_mode = value
-        self.update_blending_mode_gui()
-
-    def update_parameters(self):       
-        self.processor.amplitude = self.amplitude_slider.get()
-        self.processor.smoothness = self.smoothness_slider.get()
-        self.processor.threshold = self.threshold_slider.get()
-        self.processor.repeat = self.repeat_slider.get()
-        self.processor.jpeg_quality = self.jpeg_quality_slider.get()
-        self.processor.blend_jpeg_quality = self.blend_jpeg_quality_slider.get()
-        self.processor.base_weight = self.base_weight_slider.get()
-        self.processor.blend_weight = self.blend_weight_slider.get()
-        self.processor.saturation = self.saturation_slider.get()
-        self.processor.brightness = self.brightness_slider.get()
-        self.processor.contrast = self.contrast_slider.get()
-        self.processor.apply_filter = self.filter_var.get() == "Yes"         
-        self.processor.apply_blending = self.blending_mode_var.get() != "None"  
-        self.processor.selected_color_space = self.color_space_var.get()
-        self.processor.selected_blending_mode = self.blending_mode_var.get()
-
-    def reset_to_default(self):
-        self.amplitude_slider.set(self.processor.default_amplitude)
-        self.smoothness_slider.set(self.processor.default_smoothness)
-        self.threshold_slider.set(self.processor.default_threshold)
-        self.repeat_slider.set(self.processor.default_repeat)
-        self.jpeg_quality_slider.set(self.processor.default_jpeg_quality)
-        self.blend_jpeg_quality_slider.set(self.processor.default_blend_jpeg_quality)
-        self.base_weight_slider.set(self.processor.default_base_weight)
-        self.blend_weight_slider.set(self.processor.default_blend_weight)
-        self.saturation_slider.set(self.processor.default_saturation)
-        self.brightness_slider.set(self.processor.default_brightness)
-        self.contrast_slider.set(self.processor.default_contrast)
-        self.color_space_var.set(self.processor.default_color_space)
-        self.filter_var.set("Yes" if self.processor.default_apply_filter else "No")
-        self.blending_mode_var.set(self.processor.default_blending_mode)
-        self.update_channel_checkboxes()
-
-    def on_closing(self):    
-        self.root.destroy()
+        self.sliders["Amplitude"].setValue(int(self.processor.default_amplitude))
+        self.sliders["Smoothness"].setValue(int(self.processor.default_smoothness))
+        self.sliders["Threshold"].setValue(int(self.processor.default_threshold))
+        self.sliders["Repeat"].setValue(int(self.processor.default_repeat))
+        self.sliders["JPEG Quality"].setValue(int(self.processor.default_jpeg_quality))
+        self.sliders["Blend JPEG Quality"].setValue(int(self.processor.blend_jpeg_quality))
+        self.sliders["Brightness"].setValue(int(self.processor.default_brightness))
+        self.sliders["Saturation"].setValue(int(self.processor.default_saturation))
+        self.sliders["Contrast"].setValue(int(self.processor.default_contrast * 10))
+        self.sliders["Base Weight"].setValue(int(self.processor.default_base_weight * 10))
+        self.sliders["Blend Weight"].setValue(int(self.processor.default_blend_weight * 10))

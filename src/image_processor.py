@@ -31,6 +31,7 @@ class ImageProcessor:
         self.blend_jpeg_quality = self.default_blend_jpeg_quality
         self.base_weight = self.default_base_weight
         self.blend_weight = self.default_blend_weight
+        self.apply_blending = False  # Default value for blending
         self.apply_filter = self.default_apply_filter
         self.selected_color_space = self.default_color_space
         self.selected_blending_mode = self.default_blending_mode
