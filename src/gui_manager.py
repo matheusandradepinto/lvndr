@@ -1,5 +1,4 @@
 from PyQt5 import QtWidgets, QtCore
-import cv2
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, processor, video_manager):
