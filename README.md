@@ -1,6 +1,8 @@
 # lvndr
 
-Python script that applies glitchy artifacts to JPEG-encoded images from a video file or webcam input using Local Variance Normalisation and blending options.
+Python script that applies glitchy artifacts to JPEG-encoded images from a video file or webcam input using Local Variance Normalisation, Wordpad glitch effect, image/colorspace controls and blending options.
+
+The Local Variance Normalisation implementation is based off the [G'MIC filter](https://github.com/jboulanger/jboulanger-gmic/blob/1bec092d6ddf0ac4f49ac7169016bb3f7a3b8d75/jboulanger.gmic#L734) by `jboulanger`, and the Wordpad glitch effect is based off the [batch_wordpad_glitch](https://github.com/stepsal/batch_wordpad_glitch/blob/master/wordpad_glitch.py) by `stepsal`.
 
 ## Setup (Windows only)
 
