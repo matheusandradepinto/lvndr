@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import re
+import functools
+import io
 
 class ImageProcessor:
     def __init__(self):
@@ -12,7 +15,8 @@ class ImageProcessor:
         self.default_blend_jpeg_quality = 75 
         self.default_base_weight = 0.5 
         self.default_blend_weight = 0.5 
-        self.default_apply_filter = True 
+        self.default_apply_filter = True
+        self.apply_wordpad_glitch = False 
         self.default_color_space = "RGB" 
         self.default_blending_mode = "None" 
         self.default_selected_channels = [1, 1, 1] 
@@ -53,6 +57,47 @@ class ImageProcessor:
             "YCrCb": cv2.COLOR_RGB2YCrCb,
             "YUV": cv2.COLOR_RGB2YUV,
         }
+
+        self.wordpad_glitch_replacements = [
+            (b'\x07', b'\x27'),
+            (b'\x0B', b'\x0A\x0D'),
+            (b'(?<!\x0A)(\x0D)', b'\x0A\x0D'),
+            (b'(\x0A)(?<!\x0D)', b'\x0A\x0D')
+        ]
+
+        self.wordpad_glitch = [(re.compile(sub), replacement) for (sub, replacement) in self.wordpad_glitch_replacements]
+        self.wordpad_replacer = functools.partial(self.replace, replacements=self.wordpad_glitch)
+    
+    def replace(self, img, replacements=()):
+        """Replace byte patterns in the image based on provided replacements."""
+        for pattern, replacement in replacements:
+            img = pattern.sub(replacement, img)
+        return img
+    
+    def apply_wordpad_glitch_to_image(self, img_data):
+        """Apply the Wordpad glitch to the image byte stream."""
+        img = io.BytesIO(img_data)
+        img.seek(0)
+        header = img.read(16 + 24)  # Read header data
+        glitched = io.BytesIO(header + self.wordpad_replacer(img.read()))
+        return glitched.getvalue()
+    
+    def wordpad_glitch(self, frame):
+        """Main method to apply Wordpad glitch to a frame."""
+        # Convert frame to byte stream
+        frame_bytes = frame.tobytes()
+
+        # Apply the Wordpad glitch if the toggle is enabled
+        if self.apply_wordpad_glitch:
+            glitched_bytes = self.apply_wordpad_glitch_to_image(frame_bytes)
+        else:
+            glitched_bytes = frame_bytes
+
+        # Convert the glitched byte stream back to an image
+        glitched_array = np.frombuffer(glitched_bytes, dtype=np.uint8)
+        glitched_image = cv2.imdecode(glitched_array, cv2.IMREAD_COLOR)
+
+        return glitched_image
     
     def reset_to_defaults(self):
         """Reset all processing settings to their default values."""
@@ -284,6 +329,20 @@ class ImageProcessor:
         if self.apply_filter:
             lvn_frame = self.apply_local_variance_normalization(lvn_frame)
 
+        # Apply Wordpad glitch if enabled, using BMP encoding
+        if self.apply_wordpad_glitch:
+            # Encode the frame to BMP instead of JPEG for the glitch manipulation
+            success, bmp_data = cv2.imencode('.bmp', lvn_frame)
+            if success:
+                # Apply Wordpad glitch to BMP data
+                glitched_data = self.apply_wordpad_glitch_to_image(bmp_data.tobytes())
+                
+                # Decode the glitched BMP back into an image
+                lvn_frame = cv2.imdecode(np.frombuffer(glitched_data, np.uint8), cv2.IMREAD_COLOR)
+                if lvn_frame is None:
+                    print("Error: Failed to decode the glitched BMP image.")
+                    lvn_frame = base_frame  # Fallback to the original frame if decoding fails
+
         # Convert color space
         lvn_frame = self.convert_color_space(lvn_frame)
 
@@ -295,3 +354,4 @@ class ImageProcessor:
 
         # Convert final output back to JPEG
         return self.encode_jpeg(blended_frame, self.jpeg_quality)
+

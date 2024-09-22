@@ -1,6 +1,6 @@
 from src.image_processor import ImageProcessor
 from src.video_source_manager import VideoSourceManager
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets
 from src.gui_manager import MainWindow
 import sys
 

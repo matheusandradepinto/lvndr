@@ -9,6 +9,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.channel_checkboxes = []
         self.init_ui()
         self.apply_filter_checkbox.stateChanged.connect(self.update_apply_filter)
+        self.apply_wordpad_glitch_checkbox.stateChanged.connect(self.update_apply_wordpad_glitch)
 
     def init_ui(self):
         self.setWindowTitle("Image Processor")
@@ -61,12 +62,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.blending_mode_dropdown = self.create_dropdown("Blending Mode", ["None", "Overlay", "Multiply", "Linear Burn", "Screen", "Darken", "Lighten", "Difference", "Exclusion", "Soft Light", "Hard Light", "Dodge", "Burn"])
 
-        self.apply_filter_checkbox = QtWidgets.QCheckBox("Apply Filter")
+        self.apply_filter_checkbox = QtWidgets.QCheckBox("Apply LVN Filter")
         self.apply_filter_checkbox.setChecked(True)
+        self.apply_wordpad_glitch_checkbox = QtWidgets.QCheckBox("Apply Wordpad Glitch")
+        self.apply_wordpad_glitch_checkbox.setChecked(False)
 
         self.layout.addWidget(self.color_space_dropdown)
         self.layout.addWidget(self.blending_mode_dropdown)
         self.layout.addWidget(self.apply_filter_checkbox)
+        self.layout.addWidget(self.apply_wordpad_glitch_checkbox)
 
         central_widget.setLayout(self.layout)
 
@@ -197,6 +201,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_apply_filter(self, state):
         self.processor.apply_filter = state == QtCore.Qt.Checked
+
+    def update_apply_wordpad_glitch(self, state):
+        self.processor.apply_wordpad_glitch = state == QtCore.Qt.Checked
 
     def start_webcam(self):
         self.video_manager.start_webcam()
