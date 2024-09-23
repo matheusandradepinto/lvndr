@@ -1,8 +1,10 @@
+/* Main window */
 QMainWindow {
     background-color: black;
     border: none;
 }
 
+/* Push buttons */
 QPushButton {
     background-color: green;
     color: lime;
@@ -13,10 +15,14 @@ QPushButton {
 QPushButton:hover {
     background-color: darkgreen;
 }
+
+/* Labels */
 QLabel {
     color: lime;
     font-family: 'Courier New', Courier, monospace;
 }
+
+/* Sliders */
 QSlider {
     background: black;
 }
@@ -29,15 +35,59 @@ QSlider::handle:horizontal {
     width: 16px;
     border-radius: 8px;
 }
+
+/* Spinbox for FloatSlider */
+QDoubleSpinBox {
+    background-color: black;
+    color: lime;
+    border: 2px solid green;
+    padding: 5px;
+    border-radius: 5px;
+}
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    background-color: green;
+    border: none;
+    width: 16px;
+    height: 16px;
+}
+QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow {
+    border: none;
+    width: 8px;
+    height: 8px;
+}
+
+/* Combo box */
 QComboBox {
     background-color: black;
     color: lime;
     border: 2px solid green;
     padding: 5px;
+    border-radius: 5px;
 }
+QComboBox QAbstractItemView {
+    background-color: black;
+    color: lime;
+    background-color: darkgreen;
+}
+
+/* Checkboxes */
 QCheckBox {
     color: lime;
 }
+
+/* Scroll Area */
 QScrollArea {
-    background-color: lime;
+    background-color: black; /* Set it to black for consistency */
+    border: none;
+}
+
+/* Scroll Area's Scroll Bar */
+QScrollBar:vertical {
+    background: darkgray;
+    width: 10px;
+}
+QScrollBar::handle:vertical {
+    background: green;
+    min-height: 20px;
+    border-radius: 5px;
 }

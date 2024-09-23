@@ -121,6 +121,10 @@ class ImageProcessor:
 
     def encode_jpeg(self, frame, quality):
         """Encodes the frame into JPEG with specified quality."""
+        # Ensure quality is an integer between 0 and 100
+        quality = int(quality)  # Convert to integer
+        quality = max(0, min(quality, 100))  # Clamp the value between 0 and 100
+
         if frame.shape[2] == 4:
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2RGBA)
 

@@ -1,5 +1,48 @@
 from PyQt5 import QtWidgets, QtCore
 
+class FloatSlider(QtWidgets.QWidget):
+    def __init__(self, label, min_value, max_value, default_value, step=0.1):
+        super().__init__()
+
+        self.layout = QtWidgets.QHBoxLayout()
+
+        self.label = QtWidgets.QLabel(label)
+        self.spinbox = QtWidgets.QDoubleSpinBox()
+        self.spinbox.setRange(min_value, max_value)
+        self.spinbox.setValue(default_value)
+        self.spinbox.setSingleStep(step)
+        self.spinbox.setDecimals(2)
+
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider.setRange(int(min_value * 100), int(max_value * 100))
+        self.slider.setValue(int(default_value * 100))
+        self.slider.setTickInterval(int(step * 100))
+
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.spinbox)
+        self.layout.addWidget(self.slider)
+
+        self.setLayout(self.layout)
+
+        # Synchronize slider and spinbox
+        self.slider.valueChanged.connect(self.slider_changed)
+        self.spinbox.valueChanged.connect(self.spinbox_changed)
+
+    def slider_changed(self, value):
+        self.spinbox.setValue(value / 100)
+
+    def spinbox_changed(self, value):
+        self.slider.setValue(int(value * 100))
+
+    def set_value(self, value):
+        """Set both slider and spinbox values programmatically."""
+        self.slider.setValue(int(value * 100))
+        self.spinbox.setValue(value)
+
+    def value(self):
+        """Return the current value."""
+        return self.spinbox.value()
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, processor, video_manager):
         super().__init__()
@@ -43,17 +86,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.layout.addLayout(button_layout)
 
-        self.amplitude_slider = self.create_slider("Amplitude", 0, 200, self.processor.default_amplitude)
-        self.smoothness_slider = self.create_slider("Smoothness", 1, 20, self.processor.default_smoothness)
-        self.threshold_slider = self.create_slider("Threshold", 0, 100, self.processor.default_threshold)
-        self.repeat_slider = self.create_slider("Repeat", 1, 4, self.processor.default_repeat)
-        self.jpeg_quality_slider = self.create_slider("JPEG Quality", 0, 100, self.processor.default_jpeg_quality)
-        self.blend_jpeg_quality_slider = self.create_slider("Blend JPEG Quality", 0, 100, self.processor.blend_jpeg_quality)
-        self.brightness_slider = self.create_slider("Brightness", -100, 100, self.processor.default_brightness)
-        self.saturation_slider = self.create_slider("Saturation", -100, 100, self.processor.default_saturation)
-        self.contrast_slider = self.create_slider("Contrast", -100, 100, self.processor.default_contrast, decimal=True)
-        self.base_weight_slider = self.create_slider("Base Weight", 0, 10, self.processor.default_base_weight, decimal=True)
-        self.blend_weight_slider = self.create_slider("Blend Weight", 0, 10, self.processor.default_blend_weight, decimal=True)
+        # Replace the sliders with the FloatSlider
+        self.amplitude_slider = self.create_float_slider("Amplitude", 0, 200, self.processor.default_amplitude)
+        self.smoothness_slider = self.create_float_slider("Smoothness", 1, 20, self.processor.default_smoothness, step=0.1)
+        self.threshold_slider = self.create_float_slider("Threshold", 0, 100, self.processor.default_threshold)
+        self.repeat_slider = self.create_float_slider("Repeat", 1, 4, self.processor.default_repeat)
+        self.jpeg_quality_slider = self.create_float_slider("JPEG Quality", 0, 100, self.processor.default_jpeg_quality)
+        self.blend_jpeg_quality_slider = self.create_float_slider("Blend JPEG Quality", 0, 100, self.processor.blend_jpeg_quality)
+        self.brightness_slider = self.create_float_slider("Brightness", -100, 100, self.processor.default_brightness, step=1)
+        self.saturation_slider = self.create_float_slider("Saturation", -100, 100, self.processor.default_saturation, step=1)
+        self.contrast_slider = self.create_float_slider("Contrast", -100, 100, self.processor.default_contrast, step=0.1)
+        self.base_weight_slider = self.create_float_slider("Base Weight", 0, 10, self.processor.default_base_weight, step=0.1)
+        self.blend_weight_slider = self.create_float_slider("Blend Weight", 0, 10, self.processor.default_blend_weight, step=0.1)
 
         self.add_widgets_to_layout(self.layout)
 
@@ -100,26 +144,15 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.base_weight_slider)
         layout.addWidget(self.blend_weight_slider)
 
-    def create_slider(self, label, min_value, max_value, default_value, decimal=False):
-        slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        slider.setRange(min_value, max_value)
-        slider.setValue(int(default_value) if not decimal else int(default_value * 10))
-        slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
-        slider.setTickInterval(1)
-        slider.setFixedHeight(20)  # Set fixed height for sliders
+    def create_float_slider(self, label, min_value, max_value, default_value, step=0.1):
+        float_slider = FloatSlider(label, min_value, max_value, default_value, step)
+        
+        # Connect the value change event to the processor update method
+        float_slider.spinbox.valueChanged.connect(lambda value: self.update_processor(label, value))
 
-        slider.valueChanged.connect(lambda value: self.update_processor(label, value / 10.0 if decimal else value))
+        self.sliders[label] = float_slider  # Store reference in sliders dict for consistency
 
-        slider_label = QtWidgets.QLabel(label)
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(slider_label)
-        layout.addWidget(slider)
-
-        self.sliders[label] = slider
-
-        widget = QtWidgets.QWidget()
-        widget.setLayout(layout)
-        return widget
+        return float_slider
 
     def create_dropdown(self, label, options):
         dropdown = QtWidgets.QComboBox()
@@ -208,7 +241,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def start_webcam(self):
         self.video_manager.start_webcam()
 
+    def stop_webcam(self):
+        self.video_manager.close()  # Stop the webcam and release resources
+
     def open_video(self):
+        self.stop_webcam()  # Ensure webcam is stopped before opening a video
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mov)")
         if file_path:
             self.video_manager.start_video_file(file_path)
@@ -216,14 +253,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def reset_defaults(self):
         self.processor.reset_to_defaults()
         
-        self.sliders["Amplitude"].setValue(int(self.processor.default_amplitude))
-        self.sliders["Smoothness"].setValue(int(self.processor.default_smoothness))
-        self.sliders["Threshold"].setValue(int(self.processor.default_threshold))
-        self.sliders["Repeat"].setValue(int(self.processor.default_repeat))
-        self.sliders["JPEG Quality"].setValue(int(self.processor.default_jpeg_quality))
-        self.sliders["Blend JPEG Quality"].setValue(int(self.processor.blend_jpeg_quality))
-        self.sliders["Brightness"].setValue(int(self.processor.default_brightness))
-        self.sliders["Saturation"].setValue(int(self.processor.default_saturation))
-        self.sliders["Contrast"].setValue(int(self.processor.default_contrast * 10))
-        self.sliders["Base Weight"].setValue(int(self.processor.default_base_weight * 10))
-        self.sliders["Blend Weight"].setValue(int(self.processor.default_blend_weight * 10))
+        self.amplitude_slider.set_value(self.processor.default_amplitude)
+        self.smoothness_slider.set_value(self.processor.default_smoothness)
+        self.threshold_slider.set_value(self.processor.default_threshold)
+        self.repeat_slider.set_value(self.processor.default_repeat)
+        self.jpeg_quality_slider.set_value(self.processor.default_jpeg_quality)
+        self.blend_jpeg_quality_slider.set_value(self.processor.blend_jpeg_quality)
+        self.brightness_slider.set_value(self.processor.default_brightness)
+        self.saturation_slider.set_value(self.processor.default_saturation)
+        self.contrast_slider.set_value(self.processor.default_contrast)
+        self.base_weight_slider.set_value(self.processor.default_base_weight)
+        self.blend_weight_slider.set_value(self.processor.default_blend_weight)
+
+    def closeEvent(self, event):
+        """Override the close event to clean up resources."""
+        self.stop_webcam()  # Ensure the webcam is stopped
+        event.accept()  # Accept the event to close the window
