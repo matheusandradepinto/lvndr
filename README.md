@@ -17,3 +17,15 @@ Click on `Start Webcam` to start a video feed from your webcam or click on `Open
 Tweak parameters, switch colorspaces, select channels and select blending modes to your heart's desire. 
 
 To close, close the controls window and click on the image feed window and press `q`.
+
+## Examples
+
+![Example image](./resources/example%20(2).png)
+![Example image](./resources/example%20(3).png)
+![Example image](./resources/example%20(4).png)
+![Example image](./resources/example%20(5).png)
+![Example image](./resources/example%20(1).png)
+
+
+
+
