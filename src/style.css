@@ -64,10 +64,28 @@ QComboBox {
     padding: 5px;
     border-radius: 5px;
 }
+
 QComboBox QAbstractItemView {
-    background-color: black;
-    color: lime;
     background-color: darkgreen;
+    color: lime;
+}
+
+/* For the selected item */
+QComboBox::item {
+    color: lime;
+    background-color: black;
+}
+
+/* For the highlighted item */
+QComboBox::item:selected {
+    background-color: green;
+    color: lime;
+}
+
+/* For the drop-down button */
+QComboBox::drop-down {
+    background-color: green;
+    border: none;
 }
 
 /* Checkboxes */
@@ -75,9 +93,18 @@ QCheckBox {
     color: lime;
 }
 
+/* Line edit (QLineEdit) for preset input */
+QLineEdit {
+    background-color: black;
+    color: lime;  /* Text color */
+    border: 2px solid green;
+    padding: 5px;
+    border-radius: 5px;
+}
+
 /* Scroll Area */
 QScrollArea {
-    background-color: black; /* Set it to black for consistency */
+    background-color: black;
     border: none;
 }
 
