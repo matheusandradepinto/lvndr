@@ -26,6 +26,12 @@ class ImageProcessor:
         self.default_contrast = 1.0  # Contrast multiplier (1.0 = no change)
         self.default_saturation = 1.0  # Saturation multiplier (1.0 = no change)
 
+        # New flags for controlling LVN and Wordpad glitch application to base/blend image
+        self.apply_lvn_to_base = True
+        self.apply_lvn_to_blend = False
+        self.apply_wordpad_glitch_to_base = True
+        self.apply_wordpad_glitch_to_blend = False
+
         # Current values for all settings
         self.amplitude = self.default_amplitude
         self.smoothness = self.default_smoothness
@@ -36,7 +42,7 @@ class ImageProcessor:
         self.base_weight = self.default_base_weight
         self.blend_weight = self.default_blend_weight
         self.apply_blending = False  # Default value for blending
-        self.apply_filter = self.default_apply_filter
+
         self.selected_color_space = self.default_color_space
         self.selected_blending_mode = self.default_blending_mode
         self.selected_channels = [1, 1, 1]
@@ -88,10 +94,7 @@ class ImageProcessor:
         frame_bytes = frame.tobytes()
 
         # Apply the Wordpad glitch if the toggle is enabled
-        if self.apply_wordpad_glitch:
-            glitched_bytes = self.apply_wordpad_glitch_to_image(frame_bytes)
-        else:
-            glitched_bytes = frame_bytes
+        glitched_bytes = self.apply_wordpad_glitch_to_image(frame_bytes) if self.apply_wordpad_glitch else frame_bytes
 
         # Convert the glitched byte stream back to an image
         glitched_array = np.frombuffer(glitched_bytes, dtype=np.uint8)
@@ -327,34 +330,35 @@ class ImageProcessor:
 
         # Convert to JPEG with blend JPEG quality
         base_frame = self.encode_jpeg(frame, self.blend_jpeg_quality)
-        lvn_frame = base_frame.copy()
+        blend_frame = base_frame.copy()
 
-        # Apply Local Variance Normalization (LVN) if enabled
-        if self.apply_filter:
-            lvn_frame = self.apply_local_variance_normalization(lvn_frame)
-
-        # Apply Wordpad glitch if enabled, using BMP encoding
-        if self.apply_wordpad_glitch:
-            # Encode the frame to BMP instead of JPEG for the glitch manipulation
-            success, bmp_data = cv2.imencode('.bmp', lvn_frame)
+        # Apply LVN and Wordpad glitch to base frame if enabled
+        if self.apply_lvn_to_base:
+            base_frame = self.apply_local_variance_normalization(base_frame)
+        if self.apply_wordpad_glitch_to_base:
+            success, bmp_data = cv2.imencode('.bmp', base_frame)
             if success:
-                # Apply Wordpad glitch to BMP data
                 glitched_data = self.apply_wordpad_glitch_to_image(bmp_data.tobytes())
-                
-                # Decode the glitched BMP back into an image
-                lvn_frame = cv2.imdecode(np.frombuffer(glitched_data, np.uint8), cv2.IMREAD_COLOR)
-                if lvn_frame is None:
-                    print("Error: Failed to decode the glitched BMP image.")
-                    lvn_frame = base_frame  # Fallback to the original frame if decoding fails
+                base_frame = cv2.imdecode(np.frombuffer(glitched_data, np.uint8), cv2.IMREAD_COLOR)
+
+        # Apply LVN and Wordpad glitch to blend frame if enabled
+        if self.apply_lvn_to_blend:
+            blend_frame = self.apply_local_variance_normalization(blend_frame)
+        if self.apply_wordpad_glitch_to_blend:
+            success, bmp_data = cv2.imencode('.bmp', blend_frame)
+            if success:
+                glitched_data = self.apply_wordpad_glitch_to_image(bmp_data.tobytes())
+                blend_frame = cv2.imdecode(np.frombuffer(glitched_data, np.uint8), cv2.IMREAD_COLOR)
 
         # Convert color space
-        lvn_frame = self.convert_color_space(lvn_frame)
+        base_frame = self.convert_color_space(base_frame)
+        blend_frame = self.convert_color_space(blend_frame)
 
         # Apply blending if enabled
         if self.apply_blending:
-            blended_frame = self.blend_images(base_frame, lvn_frame)
+            blended_frame = self.blend_images(base_frame, blend_frame)
         else:
-            blended_frame = lvn_frame
+            blended_frame = blend_frame
 
         # Convert final output back to JPEG
         return self.encode_jpeg(blended_frame, self.jpeg_quality)

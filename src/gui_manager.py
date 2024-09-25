@@ -4,8 +4,9 @@ import os
 from PyQt5 import QtWidgets, QtCore
 
 def sanitize_filename(filename):
-        # Define the pattern for invalid characters (Windows reserved characters for file names)
-        return re.sub(r'[<>:"/\\|?*]', '_', filename)
+    # Define the pattern for invalid characters (Windows reserved characters for file names)
+    return re.sub(r'[<>:"/\\|?*]', '_', filename)
+
 class FloatSlider(QtWidgets.QWidget):
     def __init__(self, label, min_value, max_value, default_value, step=0.1):
         super().__init__()
@@ -58,8 +59,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sliders = {}
         self.channel_checkboxes = []
         self.init_ui()
-        self.apply_filter_checkbox.stateChanged.connect(self.update_apply_filter)
-        self.apply_wordpad_glitch_checkbox.stateChanged.connect(self.update_apply_wordpad_glitch)
+        self.apply_lvn_to_base_checkbox.stateChanged.connect(self.update_apply_lvn_to_base)
+        self.apply_lvn_to_blend_checkbox.stateChanged.connect(self.update_apply_lvn_to_blend)
+        self.apply_wordpad_glitch_to_base_checkbox.stateChanged.connect(self.update_apply_wordpad_glitch_to_base)
+        self.apply_wordpad_glitch_to_blend_checkbox.stateChanged.connect(self.update_apply_wordpad_glitch_to_blend)
 
     def init_ui(self):
         self.setWindowTitle("Image Processor")
@@ -173,13 +176,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.layout.addWidget(self.blending_mode_dropdown)
 
     def create_checkbox_layout(self):
-        self.apply_filter_checkbox = QtWidgets.QCheckBox("Apply LVN Filter")
-        self.apply_filter_checkbox.setChecked(True)
-        self.apply_wordpad_glitch_checkbox = QtWidgets.QCheckBox("Apply Wordpad Glitch")
-        self.apply_wordpad_glitch_checkbox.setChecked(False)
+        # LVN Filter Checkboxes
+        self.apply_lvn_to_base_checkbox = QtWidgets.QCheckBox("Apply LVN to Base")
+        self.apply_lvn_to_base_checkbox.setChecked(False)
+        self.apply_lvn_to_blend_checkbox = QtWidgets.QCheckBox("Apply LVN to Blend")
+        self.apply_lvn_to_blend_checkbox.setChecked(False)
 
-        self.layout.addWidget(self.apply_filter_checkbox)
-        self.layout.addWidget(self.apply_wordpad_glitch_checkbox)
+        # Wordpad Glitch Checkboxes
+        self.apply_wordpad_glitch_to_base_checkbox = QtWidgets.QCheckBox("Apply Wordpad Glitch to Base")
+        self.apply_wordpad_glitch_to_base_checkbox.setChecked(False)
+        self.apply_wordpad_glitch_to_blend_checkbox = QtWidgets.QCheckBox("Apply Wordpad Glitch to Blend")
+        self.apply_wordpad_glitch_to_blend_checkbox.setChecked(False)
+
+        # Add the checkboxes to the layout
+        self.layout.addWidget(self.apply_lvn_to_base_checkbox)
+        self.layout.addWidget(self.apply_lvn_to_blend_checkbox)
+        self.layout.addWidget(self.apply_wordpad_glitch_to_base_checkbox)
+        self.layout.addWidget(self.apply_wordpad_glitch_to_blend_checkbox)
+
 
     def create_preset_widget(self):
         self.preset_layout = QtWidgets.QHBoxLayout()
@@ -289,11 +303,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.processor.selected_blending_mode = value
             self.processor.apply_blending = value != "None"
 
-    def update_apply_filter(self, state):
-        self.processor.apply_filter = state == QtCore.Qt.Checked
+    def update_apply_lvn_to_base(self, state):
+        self.processor.apply_lvn_to_base = (state == QtCore.Qt.Checked)
 
-    def update_apply_wordpad_glitch(self, state):
-        self.processor.apply_wordpad_glitch = state == QtCore.Qt.Checked
+    def update_apply_lvn_to_blend(self, state):
+        self.processor.apply_lvn_to_blend = (state == QtCore.Qt.Checked)
+
+    def update_apply_wordpad_glitch_to_base(self, state):
+        self.processor.apply_wordpad_glitch_to_base = (state == QtCore.Qt.Checked)
+
+    def update_apply_wordpad_glitch_to_blend(self, state):
+        self.processor.apply_wordpad_glitch_to_blend = (state == QtCore.Qt.Checked)
+
 
     def start_webcam(self):
         self.video_manager.start_webcam()
@@ -334,10 +355,8 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Error", "Preset name cannot be empty.")
             return
 
-        # Sanitize the preset name to remove invalid characters
         sanitized_preset_name = sanitize_filename(preset_name)
         
-        # Ensure the preset name is not empty after sanitization
         if not sanitized_preset_name:
             QtWidgets.QMessageBox.warning(self, "Error", "Preset name is invalid.")
             return
@@ -345,12 +364,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # Save slider values
         preset = {label: slider.value() for label, slider in self.sliders.items()}
 
-        # Save additional control states
-        preset['apply_lvn_filter'] = self.apply_filter_checkbox.isChecked()
-        preset['apply_wordpad_glitch'] = self.apply_wordpad_glitch_checkbox.isChecked()
+        # Save checkbox states
         preset['color_space'] = self.color_space_dropdown.currentText()
         preset['blending_mode'] = self.blending_mode_dropdown.currentText()
         preset['selected_channels'] = [cb.isChecked() for cb in self.channel_checkboxes]
+
+        # Save the new LVN and Wordpad glitch checkboxes
+        preset['apply_lvn_to_base'] = self.apply_lvn_to_base_checkbox.isChecked()
+        preset['apply_lvn_to_blend'] = self.apply_lvn_to_blend_checkbox.isChecked()
+        preset['apply_wordpad_glitch_to_base'] = self.apply_wordpad_glitch_to_base_checkbox.isChecked()
+        preset['apply_wordpad_glitch_to_blend'] = self.apply_wordpad_glitch_to_blend_checkbox.isChecked()
 
         # Save the preset to a file
         presets_dir = "presets"
@@ -360,15 +383,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         with open(os.path.join(presets_dir, f"{sanitized_preset_name}.json"), 'w') as f:
             json.dump(preset, f)
-
+            
     def load_preset(self):
-        # Open a file dialog to select a preset file (JSON)
         preset_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load Preset", "presets", "Preset Files (*.json)")
         
         if not preset_path:
             return  # No file selected, so return
         
-        # Load the preset from the selected file
         try:
             with open(preset_path, 'r') as f:
                 preset = json.load(f)
@@ -382,12 +403,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.sliders[label].set_value(value)
 
         # Apply additional control states
-        if 'apply_lvn_filter' in preset:
-            self.apply_filter_checkbox.setChecked(preset['apply_lvn_filter'])
-
-        if 'apply_wordpad_glitch' in preset:
-            self.apply_wordpad_glitch_checkbox.setChecked(preset['apply_wordpad_glitch'])
-
         if 'color_space' in preset:
             index = self.color_space_dropdown.findText(preset['color_space'])
             if index != -1:
@@ -402,6 +417,20 @@ class MainWindow(QtWidgets.QMainWindow):
             for i, checked in enumerate(preset['selected_channels']):
                 if i < len(self.channel_checkboxes):
                     self.channel_checkboxes[i].setChecked(checked)
+
+        # Restore LVN and Wordpad glitch checkboxes
+        if 'apply_lvn_to_base' in preset:
+            self.apply_lvn_to_base_checkbox.setChecked(preset['apply_lvn_to_base'])
+
+        if 'apply_lvn_to_blend' in preset:
+            self.apply_lvn_to_blend_checkbox.setChecked(preset['apply_lvn_to_blend'])
+
+        if 'apply_wordpad_glitch_to_base' in preset:
+            self.apply_wordpad_glitch_to_base_checkbox.setChecked(preset['apply_wordpad_glitch_to_base'])
+
+        if 'apply_wordpad_glitch_to_blend' in preset:
+            self.apply_wordpad_glitch_to_blend_checkbox.setChecked(preset['apply_wordpad_glitch_to_blend'])
+
 
 
             
